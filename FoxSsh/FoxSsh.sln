@@ -1,0 +1,36 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.31005.135
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "FoxSsh", "FoxSsh.csproj", "{0C66863E-CF21-41ED-913A-B6DCE6835A00}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SandboxApp", "..\SandboxApp\SandboxApp.csproj", "{8DEAD8FE-312A-4B5D-A69F-31F2EB27187A}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{32B2107A-0494-443F-919A-76841A7D28E2}"
+	ProjectSection(SolutionItems) = preProject
+		FoxSsh.sln.licenseheader = FoxSsh.sln.licenseheader
+	EndProjectSection
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{0C66863E-CF21-41ED-913A-B6DCE6835A00}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0C66863E-CF21-41ED-913A-B6DCE6835A00}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0C66863E-CF21-41ED-913A-B6DCE6835A00}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0C66863E-CF21-41ED-913A-B6DCE6835A00}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8DEAD8FE-312A-4B5D-A69F-31F2EB27187A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8DEAD8FE-312A-4B5D-A69F-31F2EB27187A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8DEAD8FE-312A-4B5D-A69F-31F2EB27187A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8DEAD8FE-312A-4B5D-A69F-31F2EB27187A}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {68D7F546-E591-45BF-9ECE-7ABC140E1B97}
+	EndGlobalSection
+EndGlobal

@@ -1,0 +1,12 @@
+﻿extensions: designer.cs generated.cs
+extensions: .cs .cpp .h
+//   !!  // FoxSsh - https://github.com/FoxCouncil/FoxSsh
+// *.-". // MIT License
+//  | |  // Copyright 2021 The Fox Council
+
+extensions:  .xml .config .xsd
+<!--
+   !!  | FoxSsh - https://github.com/FoxCouncil/FoxSsh
+ *.-". | MIT License
+  | |  | Copyright 2021 The Fox Council 
+-->
