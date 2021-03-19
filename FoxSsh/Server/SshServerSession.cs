@@ -212,7 +212,7 @@ namespace FoxSsh.Server
 
             if (!isMessageHandled)
             {
-                throw new ApplicationException($"Message Type {messageType} is not handled!");
+                throw new ApplicationException($"Message Type [{messageType}] is not handled!");
             }
 
             var messageObj = SshCore.GetMessageInstanceFromType(messageType);
@@ -390,6 +390,25 @@ namespace FoxSsh.Server
                     var serviceObj = _registry.Register(serviceName);
 
                     SendMessage(new ServiceAcceptMessage { Name = serviceObj.Name });
+                }
+                break;
+
+                case IgnoreMessage _:
+                {
+                    // Ignore it.
+                }
+                break;
+
+                case DisconnectMessage disconnectMsg:
+                {
+                    LogLine(SshLogLevel.Info, "Client has requested disconnect for the following reason: " + disconnectMsg.Description);
+                    Disconnect();
+                }
+                break;
+                
+                default:
+                {
+                    throw new SshSessionException(SshSessionExceptionType.Unknown, $"Unknown message type: [{message}]");
                 }
                 break;
             }

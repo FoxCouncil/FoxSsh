@@ -7,6 +7,7 @@ using FoxSsh.Common.Messages.Channel.Request;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -41,7 +42,7 @@ namespace FoxSsh.Common.Services
 
             lock (_channelsLock)
             {
-                foreach (var channel in _channels)
+                foreach (var channel in _channels.ToList())
                 {
                     channel.ForciblyClose();
                 }
@@ -116,7 +117,12 @@ namespace FoxSsh.Common.Services
 
                     lock (_channelsLock)
                     {
-                        incomingChannel = _channels.Find(x => x.ClientChannelId == cData.RecipientChannel);
+                        incomingChannel = _channels.Find(x => x.ServerChannelId == cData.RecipientChannel);
+                    }
+
+                    if (incomingChannel == null)
+                    {
+                        throw new SshSessionException(SshSessionExceptionType.Unknown, "Unknown channel...");
                     }
 
                     incomingChannel.OnData(cData.Data);
@@ -131,14 +137,19 @@ namespace FoxSsh.Common.Services
                         {
                             var ptyReq = ISshMessage.To<ChannelPtyRequestMessage>(coReq);
 
-                            if (ptyReq.WantReply)
+                            SshChannel channel;
+
+                            lock (_channelsLock)
                             {
-                                Registry.Session.SendMessage(new ChannelSuccessMessage { RecipientChannel = ptyReq.RecipientChannel });
+                                channel = _channels.Find(x => x.ServerChannelId == ptyReq.RecipientChannel);
                             }
 
-                            var chan = _channels.Find(x => x.ClientChannelId == ptyReq.RecipientChannel);
+                            if (ptyReq.WantReply)
+                            {
+                                Registry.Session.SendMessage(new ChannelSuccessMessage { RecipientChannel = channel.ClientChannelId });
+                            }
 
-                            var pty = new SshPty(chan)
+                            var pty = new SshPty(channel)
                             {
                                 HeightPx = ptyReq.HeightPx,
                                 HeightRows = ptyReq.HeightRows,
