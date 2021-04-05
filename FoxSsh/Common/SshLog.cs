@@ -10,7 +10,7 @@ namespace FoxSsh.Common
 {
     public static class SshLog
     {
-        public static SshLogLevel LogLevel { get; set; } = Debugger.IsAttached ? SshLogLevel.Debug : SshLogLevel.Error;
+        public static SshLogLevel LogLevel { get; set; } = Debugger.IsAttached ? SshLogLevel.All : SshLogLevel.Error;
 
         public static void WriteLine(SshLogLevel level, string line)
         {
@@ -25,10 +25,9 @@ namespace FoxSsh.Common
     {
         None,
         Error,
-        Info,
         Message,
-        Trace,
         Debug,
+        Trace,
         All
     }
 }

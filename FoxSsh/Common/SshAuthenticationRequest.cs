@@ -4,7 +4,6 @@
 
 using FoxSsh.Common.Crypto;
 using FoxSsh.Common.Messages.Authentication;
-using System;
 
 namespace FoxSsh.Common
 {

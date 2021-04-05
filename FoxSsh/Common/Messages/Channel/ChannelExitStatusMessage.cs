@@ -2,10 +2,6 @@
 // *.-". // MIT License
 //  | |  // Copyright 2021 The Fox Council
 
-using System;
-using System.Collections.Generic;
-using System.Text;
-
 namespace FoxSsh.Common.Messages.Channel
 {
     public class ChannelExitStatusMessage : ChannelRequestMessage

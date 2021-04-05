@@ -48,7 +48,7 @@ namespace FoxSsh.Common.Crypto
 
                 var k = _iv.Length;
 
-                while (--k >= 0 && ++_iv[k] == 0) { };
+                while (--k >= 0 && ++_iv[k] == 0) { }
             }
 
             return written;

@@ -29,7 +29,7 @@ namespace FoxSsh.Common.Messages.Authentication
 
         public void LoadRawData(SshDataStream stream) 
         {
-            Username = stream.ReadStringUTF8();
+            Username = stream.ReadStringUtf8();
             ServiceName = stream.ReadStringAscii();
             MethodName = stream.ReadStringAscii();
 
@@ -59,6 +59,7 @@ namespace FoxSsh.Common.Messages.Authentication
                 case "password":
                 {
                     var isEmpty = stream.ReadBoolean();
+
                     Password = stream.ReadStringAscii();
 
                     IsSupportedMethod = true;

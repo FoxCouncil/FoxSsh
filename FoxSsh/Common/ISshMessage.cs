@@ -5,7 +5,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 
 namespace FoxSsh.Common
 {
@@ -33,7 +32,7 @@ namespace FoxSsh.Common
 
             if (packet.Type != dataPacketType)
             {
-                throw new ApplicationException("There was a missmatch between packet Types {this} and {that}");
+                throw new ApplicationException("There was a mismatch between packet Types {this} and {that}");
             }
 
             packet.LoadRawData(stream);

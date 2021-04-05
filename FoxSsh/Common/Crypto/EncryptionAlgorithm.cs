@@ -32,9 +32,11 @@ namespace FoxSsh.Common.Crypto
 
         public IEnumerable<byte> Transform(IEnumerable<byte> input)
         {
-            var output = new byte[input.Count()];
+            var bytes = input as byte[] ?? input.ToArray();
 
-            _transform.TransformBlock(input.ToArray(), 0, input.Count(), output, 0);
+            var output = new byte[bytes.Length];
+
+            _transform.TransformBlock(bytes, 0, bytes.Length, output, 0);
 
             return output;
         }

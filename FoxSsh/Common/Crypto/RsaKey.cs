@@ -7,7 +7,7 @@ using System.Text;
 
 namespace FoxSsh.Common.Crypto
 {
-    public class RsaKey : PublicKeyAlgorithm
+    public sealed class RsaKey : PublicKeyAlgorithm
     {
         private readonly RSACryptoServiceProvider _algorithm = new RSACryptoServiceProvider();
 
@@ -27,35 +27,33 @@ namespace FoxSsh.Common.Crypto
 
         public override void LoadKeyAndCertificatesData(byte[] data)
         {
-            using (var stream = new SshDataStream(data))
+            using var stream = new SshDataStream(data);
+
+            if (stream.ReadString(Encoding.ASCII) != Name)
             {
-                if (stream.ReadString(Encoding.ASCII) != this.Name)
-                {
-                    throw new CryptographicException("Key and/or certificate algorithm missmatch.");
-                }
-
-                var args = new RSAParameters
-                {
-                    Exponent = stream.ReadMpInt(),
-                    Modulus = stream.ReadMpInt()
-                };
-
-                _algorithm.ImportParameters(args);
+                throw new CryptographicException("Key and/or certificate algorithm mismatch.");
             }
+
+            var args = new RSAParameters
+            {
+                Exponent = stream.ReadMpInt(),
+                Modulus = stream.ReadMpInt()
+            };
+
+            _algorithm.ImportParameters(args);
         }
 
         public override byte[] CreateKeyAndCertificatesData()
         {
-            using (var stream = new SshDataStream())
-            {
-                var args = _algorithm.ExportParameters(false);
+            using var stream = new SshDataStream();
 
-                stream.Write(this.Name, Encoding.ASCII);
-                stream.WriteMpInt(args.Exponent);
-                stream.WriteMpInt(args.Modulus);
+            var args = _algorithm.ExportParameters(false);
 
-                return stream.ToByteArray();
-            }
+            stream.Write(Name, Encoding.ASCII);
+            stream.WriteMpInt(args.Exponent);
+            stream.WriteMpInt(args.Modulus);
+
+            return stream.ToByteArray();
         }
 
         public override bool VerifyData(byte[] data, byte[] signature)

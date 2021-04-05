@@ -27,40 +27,37 @@ namespace FoxSsh.Common.Crypto
 
         public override void LoadKeyAndCertificatesData(byte[] data)
         {
-            using (var stream = new SshDataStream(data))
+            using var stream = new SshDataStream(data);
+
+            if (stream.ReadString(Encoding.ASCII) != Name)
             {
-                if (stream.ReadString(Encoding.ASCII) != Name)
-                {
-                    throw new CryptographicException("Key and/or certificate algorithm missmatch.");
-                }
-
-                var args = new DSAParameters
-                {
-                    P = stream.ReadMpInt(),
-                    Q = stream.ReadMpInt(),
-                    G = stream.ReadMpInt(),
-                    Y = stream.ReadMpInt()
-                };
-
-                _algorithm.ImportParameters(args);
+                throw new CryptographicException("Key and/or certificate algorithm mismatch.");
             }
+
+            var args = new DSAParameters
+            {
+                P = stream.ReadMpInt(),
+                Q = stream.ReadMpInt(),
+                G = stream.ReadMpInt(),
+                Y = stream.ReadMpInt()
+            };
+
+            _algorithm.ImportParameters(args);
         }
 
         public override byte[] CreateKeyAndCertificatesData()
         {
-            using (var stream = new SshDataStream())
-            {
-                var args = _algorithm.ExportParameters(false);
+            using var stream = new SshDataStream();
+            var args = _algorithm.ExportParameters(false);
 
-                stream.Write(this.Name, Encoding.ASCII);
+            stream.Write(Name, Encoding.ASCII);
 
-                stream.WriteMpInt(args.P);
-                stream.WriteMpInt(args.Q);
-                stream.WriteMpInt(args.G);
-                stream.WriteMpInt(args.Y);
+            stream.WriteMpInt(args.P);
+            stream.WriteMpInt(args.Q);
+            stream.WriteMpInt(args.G);
+            stream.WriteMpInt(args.Y);
 
-                return stream.ToByteArray();
-            }
+            return stream.ToByteArray();
         }
 
         public override bool VerifyData(byte[] data, byte[] signature)

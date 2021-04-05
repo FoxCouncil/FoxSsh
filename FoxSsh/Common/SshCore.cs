@@ -7,10 +7,8 @@ using FoxSsh.Common.Crypto;
 using FoxSsh.Server;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Reflection;
 using System.Security.Cryptography;
 using System.Text.Json;
 
@@ -21,6 +19,12 @@ namespace FoxSsh.Common
         internal static class ChannelRequestNames 
         {
             public const string PtyRequest = "pty-req";
+
+            public const string ShellRequest = "shell";
+
+            public const string WindowChange = "window-change";
+
+            public const string WinAdjPutty = "winadj@putty.projects.tartarus.org";
         }
 
         public const byte CarriageReturn = 0x0d;
@@ -53,7 +57,7 @@ namespace FoxSsh.Common
 
         public static readonly Dictionary<string, Type> ServiceMapping = new Dictionary<string, Type>();
 
-        public static SshServerKeys ServerPublicKeys { get; private set; }
+        public static SshServerKeys ServerPublicKeys { get; }
 
         public static readonly Dictionary<string, Func<string, PublicKeyAlgorithm>> PublicKeyAlgorithms = new Dictionary<string, Func<string, PublicKeyAlgorithm>>();
 
@@ -65,9 +69,13 @@ namespace FoxSsh.Common
 
         public static readonly Dictionary<string, Func<CompressionAlgorithm>> CompressionAlgorithms = new Dictionary<string, Func<CompressionAlgorithm>>();
 
-        public static RandomNumberGenerator Rng { get; private set; }
+        public static RandomNumberGenerator Rng { get; }
 
-        public static TimeSpan SocketTimeout { get; set; } = TimeSpan.FromSeconds(30);
+        public static TimeSpan ReadSocketTimeout { get; set; } = TimeSpan.FromSeconds(30);
+
+        public static TimeSpan WriteSocketTimeout { get; set; } = TimeSpan.FromSeconds(30);
+
+        public static TimeSpan ConnectSocketTimeout { get; set; } = TimeSpan.FromSeconds(5);
 
         public static bool AnonymousAccess { get; set; }
 
@@ -145,6 +153,8 @@ namespace FoxSsh.Common
         {
             foreach (var client in clientAlgorithms)
             {
+                // ReSharper disable once PossibleMultipleEnumeration
+                // ReSharper disable once LoopCanBeConvertedToQuery
                 foreach (var server in serverAlgorithms)
                 {
                     if (client == server)

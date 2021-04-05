@@ -3,8 +3,6 @@
 //  | |  // Copyright 2021 The Fox Council
 
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 
 namespace FoxSsh.Common.Messages
 {

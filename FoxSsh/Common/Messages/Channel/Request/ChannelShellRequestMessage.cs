@@ -2,12 +2,9 @@
 // *.-". // MIT License
 //  | |  // Copyright 2021 The Fox Council
 
-// ReSharper disable InconsistentNaming
-namespace FoxSsh.Common.Crypto
+namespace FoxSsh.Common.Messages.Channel.Request
 {
-    public enum CipherModeExtended
+    internal class ChannelShellRequestMessage : ChannelRequestMessage
     {
-        CBC,
-        CTR
     }
 }

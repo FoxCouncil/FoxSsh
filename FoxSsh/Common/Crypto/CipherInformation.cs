@@ -9,11 +9,11 @@ namespace FoxSsh.Common.Crypto
 {
     public class CipherInformation
     {
-        public int KeySize { get; private set; }
+        public int KeySize { get; }
 
-        public int BlockSize { get; private set; }
+        public int BlockSize { get; }
 
-        public Func<byte[], byte[], bool, EncryptionAlgorithm> Cipher { get; private set; }
+        public Func<byte[], byte[], bool, EncryptionAlgorithm> Cipher { get; }
 
         public CipherInformation(SymmetricAlgorithm algorithm, int keySize, CipherModeExtended mode)
         {

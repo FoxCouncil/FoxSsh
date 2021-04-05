@@ -13,7 +13,7 @@ namespace FoxSsh.Common.Crypto
         public DiffieHellmanGroupSha1(DiffieHellman algorithm)
         {
             _exchangeAlgorithm = algorithm;
-            _hashAlgorithm = new SHA1CryptoServiceProvider();
+            HashAlgorithm = new SHA1CryptoServiceProvider();
         }
 
         public override byte[] CreateKeyExchange()

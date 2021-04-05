@@ -8,7 +8,7 @@ namespace FoxSsh.Common.Crypto
 {
     public abstract class KeyExchangeAlgorithm
     {
-        protected HashAlgorithm _hashAlgorithm;
+        protected HashAlgorithm HashAlgorithm;
 
         public abstract byte[] CreateKeyExchange();
 
@@ -16,7 +16,7 @@ namespace FoxSsh.Common.Crypto
 
         public byte[] ComputeHash(byte[] input)
         {
-            return _hashAlgorithm.ComputeHash(input);
+            return HashAlgorithm.ComputeHash(input);
         }
     }
 }

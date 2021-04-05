@@ -6,7 +6,7 @@ using System.Collections.Generic;
 
 namespace FoxSsh.Common.Messages.Authentication
 {
-    class AuthenticationBannerMessage : ISshMessage
+    internal class AuthenticationBannerMessage : ISshMessage
     {
         public SshMessageType Type => SshMessageType.UserAuthBanner;
 

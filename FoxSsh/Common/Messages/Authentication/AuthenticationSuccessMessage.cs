@@ -2,13 +2,11 @@
 // *.-". // MIT License
 //  | |  // Copyright 2021 The Fox Council
 
-using System;
 using System.Collections.Generic;
-using System.Text;
 
 namespace FoxSsh.Common.Messages.Authentication
 {
-    class AuthenticationSuccessMessage : ISshMessage
+    internal class AuthenticationSuccessMessage : ISshMessage
     {
         public SshMessageType Type => SshMessageType.UserAuthSuccess;
 

@@ -29,14 +29,18 @@ namespace FoxSsh.Common.Services
 
         public SshServiceRegistry Registry { get; set; }
 
+        public SshPty Pty { get; private set; }
+
+#pragma warning disable 67
         public event Action<SshPty> PtyRegistered;
+#pragma warning restore 67
 
         public ConnectionService()
         {
             Task.Run(Run);
         }
 
-        public void Close()
+        public void Close(string reason)
         {
             _cancelToken.Cancel();
 
@@ -131,37 +135,87 @@ namespace FoxSsh.Common.Services
 
                 case ChannelRequestMessage coReq:
                 {
+                    Registry.Session.LogLine(SshLogLevel.Trace, $"Handling ChannelRequestMessage: {coReq.RequestType}");
+
                     switch (coReq.RequestType)
                     {
                         case SshCore.ChannelRequestNames.PtyRequest:
                         {
                             var ptyReq = ISshMessage.To<ChannelPtyRequestMessage>(coReq);
 
-                            SshChannel channel;
-
-                            lock (_channelsLock)
-                            {
-                                channel = _channels.Find(x => x.ServerChannelId == ptyReq.RecipientChannel);
-                            }
+                            var channel = GetChannel(ptyReq.RecipientChannel);
 
                             if (ptyReq.WantReply)
                             {
                                 Registry.Session.SendMessage(new ChannelSuccessMessage { RecipientChannel = channel.ClientChannelId });
                             }
 
-                            var pty = new SshPty(channel)
+                            Pty = new SshPty(channel)
                             {
                                 HeightPx = ptyReq.HeightPx,
-                                HeightRows = ptyReq.HeightRows,
+                                HeightChars = ptyReq.HeightRows,
                                 Terminal = ptyReq.Terminal,
                                 WidthChars = ptyReq.WidthChars,
                                 WidthPx = ptyReq.WidthPx
                             };
 
-                            Registry.Session.SendPtyRegistration(pty);
+                            Registry.Session.SendPtyRequest(Pty);
+                        }
+                        break;
+
+                        case SshCore.ChannelRequestNames.ShellRequest:
+                        {
+                            var shellReq = ISshMessage.To<ChannelShellRequestMessage>(coReq);
+
+                            if (shellReq.WantReply)
+                            {
+                                var channel = GetChannel(shellReq.RecipientChannel);
+
+                                Registry.Session.SendMessage(new ChannelSuccessMessage { RecipientChannel = channel.ClientChannelId });
+                            }
+
+                            Registry.Session.SendShellRequest();
+                        }
+                        break;
+
+                        case SshCore.ChannelRequestNames.WindowChange:
+                        {
+                            var windowChangeReq = ISshMessage.To<ChannelWindowChangeRequestMessage>(coReq);
+
+                            Pty.OnResize(windowChangeReq.WidthChars, windowChangeReq.HeightChars, windowChangeReq.WidthPixels, windowChangeReq.HeightPixels);
+
+                            if (windowChangeReq.WantReply)
+                            {
+                                var channel = GetChannel(windowChangeReq.RecipientChannel);
+
+                                Registry.Session.SendMessage(new ChannelSuccessMessage { RecipientChannel = channel.ClientChannelId });
+                            }
+                        }
+                        break;
+
+                        case SshCore.ChannelRequestNames.WinAdjPutty:
+                        {
+                            var channel = GetChannel(coReq.RecipientChannel);
+
+                            Registry.Session.SendMessage(new ChannelFailureMessage { RecipientChannel = channel.ClientChannelId });
+                        }
+                        break;
+
+                        default:
+                        {
+                            SshLog.WriteLine(SshLogLevel.Trace, coReq.RequestType);
+                            // throw new ApplicationException($"Could not process the {message.Type} Connection Service message.");
                         }
                         break;
                     }
+                }
+                break;
+
+                case ChannelWindowAdjustMessage adjustMessage:
+                {
+                    var channel = GetChannel(adjustMessage.RecipientChannel);
+
+                    channel.ClientAdjustWindowSize(adjustMessage.BytesToAdd);
                 }
                 break;
 
@@ -169,8 +223,19 @@ namespace FoxSsh.Common.Services
                 {
                     throw new ApplicationException($"Could not process the {message.Type} Connection Service message.");
                 }
-                break;
             }
+        }
+
+        private SshChannel GetChannel(uint channelId)
+        {
+            SshChannel channel;
+
+            lock (_channelsLock)
+            {
+                channel = _channels.Find(x => x.ServerChannelId == channelId);
+            }
+
+            return channel;
         }
     }
 }

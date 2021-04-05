@@ -3,14 +3,10 @@
 //  | |  // Copyright 2021 The Fox Council
 
 using FoxSsh.Common;
-using FoxSsh.Common.Messages.Channel.Request;
-using FoxSsh.Common.Services;
 using FoxSsh.Server;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
-using System.Text;
 using System.Threading;
 
 namespace SandboxApp
@@ -21,10 +17,12 @@ namespace SandboxApp
 
         private readonly SshServer _sshServer;
 
-        private readonly List<SshServerSession> _sessions = new();
+        private readonly List<SandboxSession> _sessions = new();
 
         public SandboxServer()
         {
+            SshCore.ReadSocketTimeout = TimeSpan.MaxValue;
+
             _sshServer = new SshServer();
 
             _sshServer.ClientConnected += ClientConnectedHandler;
@@ -47,38 +45,20 @@ namespace SandboxApp
 
         private void ClientConnectedHandler(SshServerSession session)
         {
-            _sessions.Add(session);
+            var newSession = new SandboxSession(session);
 
-            session.AuthenticationRequest += Session_AuthenticationRequestHandler;
-            session.PtyRegistered += Session_PtyRegisteredHandler;
-        }
+            _sessions.Add(newSession);
 
-        private void Session_PtyRegisteredHandler(SshPty pty)
-        {
-            pty.Clear();
-            pty.Data += (s) => pty.Send(s);
-        }
-
-        private bool Session_AuthenticationRequestHandler(SshAuthenticationRequest request)
-        {
-            request.Banner = $"Welcome {request.Username},\n\nYou have reached The FoxSSH Sandbox Server.\n\nPlease login...\n\n";
-            
-            if (request.Method == SshCore.PasswordAuthenticationMethod)
-            {
-                request.IsSupportedMethod = true;
-
-                if (request.Password == "hourglass")
-                {
-                    return true;
-                }
-            }
-
-            return false;
+            // newSession.Run();
         }
 
         private void ClientDisconnectedHandler(SshServerSession session)
         {
-            _sessions.Remove(session);
+            var oldSession = _sessions.FirstOrDefault(x => x.Id == session.Id);
+
+            oldSession?.Stop();
+
+            _sessions.Remove(oldSession);
         }
     }
 }

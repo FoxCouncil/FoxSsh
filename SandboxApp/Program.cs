@@ -8,11 +8,11 @@ namespace SandboxApp
 {
     internal class Program
     {
-        private static void Main(string[] args)
+        private static void Main()
         {
             var sandboxServer = new SandboxServer();
 
-            Console.CancelKeyPress += (sender, eArgs) =>
+            Console.CancelKeyPress += (_, eArgs) =>
             {
                 sandboxServer.Stop();
 

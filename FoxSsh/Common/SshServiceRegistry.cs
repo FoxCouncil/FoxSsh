@@ -13,7 +13,7 @@ namespace FoxSsh.Common
     {
         private readonly Dictionary<string, ISshService> _services = new Dictionary<string, ISshService>();
 
-        public SshServerSession Session { get; private set; }
+        public SshServerSession Session { get; }
 
         public IReadOnlyCollection<ISshService> Services => _services.Values;
 
@@ -26,7 +26,7 @@ namespace FoxSsh.Common
         {
             if (!SshCore.ServiceMapping.ContainsKey(name))
             {
-                throw new ApplicationException($"Service {name} not found in ServiceMapping's.");
+                throw new ApplicationException($"Service {name} not found in ServiceMappings.");
             }
 
             return _services.ContainsKey(name);
@@ -34,11 +34,11 @@ namespace FoxSsh.Common
 
         public ISshService Register(string name)
         {
-            Session.LogLine(SshLogLevel.Info, $"Registering Service [{name}]");
+            Session.LogLine(SshLogLevel.Debug, $"Registering Service [{name}]");
 
             if (!SshCore.ServiceMapping.ContainsKey(name))
             {
-                throw new ApplicationException($"Service {name} not found in ServiceMapping's.");
+                throw new ApplicationException($"Service {name} not found in ServiceMappings.");
             }
 
             if (_services.ContainsKey(name))
@@ -55,11 +55,11 @@ namespace FoxSsh.Common
             return newServiceObject;
         }
 
-        public void Unregister(string name)
+        public void UnRegister(string name)
         {
             if (!SshCore.ServiceMapping.ContainsKey(name))
             {
-                throw new ApplicationException($"Service {name} not found in ServiceMapping's.");
+                throw new ApplicationException($"Service {name} not found in ServiceMappings.");
             }
 
             if (!_services.ContainsKey(name))
@@ -67,26 +67,23 @@ namespace FoxSsh.Common
                 throw new ApplicationException($"Service {name} is not already registered?");
             }
 
-            _services[name].Close();
+            _services[name].Close("UnRegistering");
             _services.Remove(name);
         }
 
         public bool TryProcessMessage(ISshMessage message)
         {
-            foreach (var service in _services.Values)
-            {
-                if (service.TryParseMessage(message))
-                {
-                    return true;
-                }
-            }
-
-            return false;
+            return _services.Values.Any(service => service.TryParseMessage(message));
         }
 
-        public void Close()
+        public void Close(string reason)
         {
-            _services.Values.ToList().ForEach(x => x.Close());
+            if (!_services.Any())
+            {
+                return;
+            }
+                
+            _services.Values.ToList().ForEach(x => x.Close(reason));
             _services.Clear();
         }
     }

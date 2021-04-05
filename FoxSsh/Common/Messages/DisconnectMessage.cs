@@ -30,11 +30,11 @@ namespace FoxSsh.Common.Messages
         public void LoadRawData(SshDataStream stream) 
         {
             Reason = (SshDisconnectReason)stream.ReadUInt32();
-            Description = stream.ReadStringUTF8();
+            Description = stream.ReadStringUtf8();
 
             if (stream.DataAvailable >= 4)
             {
-                Language = stream.ReadStringUTF8();
+                Language = stream.ReadStringUtf8();
             }
         }
 

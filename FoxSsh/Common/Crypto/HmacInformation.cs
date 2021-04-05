@@ -3,17 +3,15 @@
 //  | |  // Copyright 2021 The Fox Council
 
 using System;
-using System.Collections.Generic;
 using System.Security.Cryptography;
-using System.Text;
 
 namespace FoxSsh.Common.Crypto
 {
     public class HmacInformation
     {
-        public int KeySize { get; private set; }
+        public int KeySize { get; }
 
-        public Func<byte[], HmacAlgorithm> Hmac { get; private set; }
+        public Func<byte[], HmacAlgorithm> Hmac { get; }
 
         public HmacInformation(KeyedHashAlgorithm algorithm, int keySize)
         {

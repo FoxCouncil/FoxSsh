@@ -28,43 +28,33 @@ namespace FoxSsh.Server
 
         public event Action<SshServerSession> ClientDisconnected;
 
-        public IPAddress ListenAddress { get; private set; }
+        public IPAddress ListenAddress { get; }
 
-        public int ListenPort { get; private set; }
+        public int ListenPort { get; }
 
         public SshServer(IPAddress ipAddress = null, int port = SshCore.DefaultPort)
         {
-            if (ipAddress == null)
-            {
-                ipAddress = IPAddress.IPv6Any;
-            }
+            ipAddress ??= IPAddress.IPv6Any;
 
             ListenAddress = ipAddress;
 
             ListenPort = port;
 
-            LogLine(SshLogLevel.Info, "Server Initialized");
+            LogLine(SshLogLevel.Trace, "Server Initialized");
         }
 
         public static void LogLine(SshLogLevel level, string log) => SshLog.WriteLine(level, $"-[SERVER] {log}");
 
         public void Start()
         {
-            LogLine(SshLogLevel.Info, "Server Is Starting...");
+            LogLine(SshLogLevel.Trace, "Server Is Starting...");
 
             if (_isRunning)
             {
                 throw new ApplicationException("Called Start when running on FoxSshServer!");
             }
 
-            if (ListenAddress == IPAddress.IPv6Any)
-            {
-                _listener = TcpListener.Create(ListenPort);
-            }
-            else
-            {
-                _listener = new TcpListener(ListenAddress, ListenPort);
-            }
+            _listener = Equals(ListenAddress, IPAddress.IPv6Any) ? TcpListener.Create(ListenPort) : new TcpListener(ListenAddress, ListenPort);
 
             _listener.ExclusiveAddressUse = false;
             _listener.Server.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
@@ -74,7 +64,7 @@ namespace FoxSsh.Server
 
             _isRunning = true;
 
-            LogLine(SshLogLevel.Info, $"Server Has Started {_listener.LocalEndpoint}");
+            LogLine(SshLogLevel.Message, $"Server Has Started {_listener.LocalEndpoint}");
         }
 
         public void Stop()
@@ -117,7 +107,6 @@ namespace FoxSsh.Server
             }
             catch (ObjectDisposedException)
             {
-                return;
             }
             catch
             {
@@ -136,7 +125,7 @@ namespace FoxSsh.Server
 
                 Task.Run(() =>
                 {
-                    LogLine(SshLogLevel.Info, $"Thread {Thread.CurrentThread.ManagedThreadId} started!");
+                    LogLine(SshLogLevel.Trace, $"Thread {Thread.CurrentThread.ManagedThreadId} started!");
 
                     var session = new SshServerSession(socket);
 
@@ -151,7 +140,7 @@ namespace FoxSsh.Server
 
                     ClientDisconnected?.Invoke(session);
 
-                    LogLine(SshLogLevel.Info, $"Thread {Thread.CurrentThread.ManagedThreadId} stopped!");
+                    LogLine(SshLogLevel.Trace, $"Thread {Thread.CurrentThread.ManagedThreadId} stopped!");
                 });
             }
             finally

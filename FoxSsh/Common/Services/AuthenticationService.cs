@@ -3,7 +3,6 @@
 //  | |  // Copyright 2021 The Fox Council
 
 using FoxSsh.Common.Messages.Authentication;
-using System;
 using System.Collections.Generic;
 
 namespace FoxSsh.Common.Services
@@ -16,11 +15,9 @@ namespace FoxSsh.Common.Services
 
         public string Name => SshCore.ServiceAuthenticationName;
 
-        public event Func<AuthenticationService, SshAuthenticationRequest, bool> Request;
-
         public SshServiceRegistry Registry { get; set; }
 
-        public void Close() { }
+        public void Close(string reason) { }
 
         public bool TryParseMessage(ISshMessage message)
         {
@@ -49,20 +46,20 @@ namespace FoxSsh.Common.Services
 
             if (!authRequest.IsSupportedMethod)
             {
-                Registry.Session.LogLine(SshLogLevel.Info, $"Authentication Service [Type:{message.MethodName}] Not Valid, Sending [Types:{string.Join(",", SupportedMethods)}]");
+                Registry.Session.LogLine(SshLogLevel.Debug, $"Authentication Service [Type:{message.MethodName}] Not Valid, Sending [Types:{string.Join(",", SupportedMethods)}]");
 
                 Registry.Session.SendMessage(new AuthenticationFailureMessage());
 
                 return;
             }
 
-            Registry.Session.LogLine(SshLogLevel.Info, $"Authentication Service [Type:{message.MethodName}] [Result:{result}]");
+            Registry.Session.LogLine(SshLogLevel.Debug, $"Authentication Service [Type:{message.MethodName}] [Result:{result}]");
 
             if (result)
             {
                 var connectionService = (ConnectionService)Registry.Register(SshCore.ServiceConnectionName);
 
-                connectionService.PtyRegistered += Registry.Session.SendPtyRegistration;
+                connectionService.PtyRegistered += Registry.Session.SendPtyRequest;
 
                 Registry.Session.SendMessage(new AuthenticationSuccessMessage());
             }

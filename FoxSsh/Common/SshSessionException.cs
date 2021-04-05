@@ -10,7 +10,7 @@ namespace FoxSsh.Common
     {
         public SshSessionExceptionType Type { get; }
 
-        public override string Message => string.IsNullOrWhiteSpace(base.Message) || base.Message.Contains(this.GetType().Name) ? Type.ToString() : base.Message;
+        public override string Message => string.IsNullOrWhiteSpace(base.Message) || base.Message.Contains(GetType().Name) ? Type.ToString() : base.Message;
 
         public SshSessionException()
         {

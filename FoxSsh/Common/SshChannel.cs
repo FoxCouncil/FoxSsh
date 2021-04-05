@@ -4,36 +4,33 @@
 
 using FoxSsh.Common.Messages.Channel;
 using FoxSsh.Common.Services;
-using FoxSsh.Server;
 using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using System.Threading;
 
 namespace FoxSsh.Common
 {
     public class SshChannel
     {
-        private ConnectionService _service;
+        private readonly ConnectionService _service;
 
-        private EventWaitHandle _sendingWindow = new ManualResetEvent(false);
+        private readonly EventWaitHandle _sendingWindow = new ManualResetEvent(false);
 
-        public uint ClientChannelId { get; private set; }
+        public uint ClientChannelId { get; }
 
-        public uint ClientInitialWindowSize { get; private set; }
+        public uint ClientInitialWindowSize { get; }
 
         public uint ClientWindowSize { get; protected set; }
 
-        public uint ClientMaxPacketSize { get; private set; }
+        public uint ClientMaxPacketSize { get; }
 
-        public uint ServerChannelId { get; private set; }
+        public uint ServerChannelId { get; }
 
-        public uint ServerInitialWindowSize { get; private set; }
+        public uint ServerInitialWindowSize { get; }
 
         public uint ServerWindowSize { get; protected set; }
 
-        public uint ServerMaxPacketSize { get; private set; }
+        public uint ServerMaxPacketSize { get; }
 
         public bool ClientClosed { get; private set; }
 
@@ -45,7 +42,9 @@ namespace FoxSsh.Common
 
         public string Type { get; internal set; }
 
-        public event Action<IReadOnlyCollection<byte>> DataRecieved;
+        public event Action<IReadOnlyCollection<byte>> DataReceived;
+
+        public event Action<string> Disconnect;
 
         public SshChannel(ConnectionService service, uint clientChannelId, uint clientInitialWindowSize, uint clientMaxPacketSize, uint serverChannelId)
         {
@@ -75,8 +74,7 @@ namespace FoxSsh.Common
                 return;
             }
 
-            var dataMessage = new ChannelDataMessage();
-            dataMessage.RecipientChannel = ClientChannelId;
+            var dataMessage = new ChannelDataMessage { RecipientChannel = ClientChannelId };
 
             var total = (uint)data.Count;
             var offset = 0;
@@ -98,6 +96,7 @@ namespace FoxSsh.Common
                     buffer = new byte[packetSize];
                 }
 
+                // ReSharper disable once SuspiciousTypeConversion.Global
                 Array.Copy((Array)data, offset, buffer, 0, (int)packetSize);
 
                 dataMessage.Data = buffer;
@@ -148,7 +147,7 @@ namespace FoxSsh.Common
         {
             AttemptWindowAdjust((uint)data.Count);
 
-            DataRecieved?.Invoke(data);
+            DataReceived?.Invoke(data);
         }
 
         internal void OnEof()
@@ -176,19 +175,23 @@ namespace FoxSsh.Common
         {
             ServerWindowSize -= bytesToAdjust;
 
-            if (ServerWindowSize <= ServerMaxPacketSize)
+            if (ServerWindowSize > ServerMaxPacketSize)
             {
-                _service.Registry.Session.SendMessage(new ChannelWindowAdjustMessage { 
-                    RecipientChannel = ClientChannelId,
-                    BytesToAdd = ServerInitialWindowSize - ServerWindowSize
-                });
-
-                ServerWindowSize = ServerInitialWindowSize;
+                return;
             }
+
+            _service.Registry.Session.SendMessage(new ChannelWindowAdjustMessage { 
+                RecipientChannel = ClientChannelId,
+                BytesToAdd = ServerInitialWindowSize - ServerWindowSize
+            });
+
+            ServerWindowSize = ServerInitialWindowSize;
         }
 
         internal void ForciblyClose()
         {
+            Disconnect?.Invoke("Closing...");
+
             _service.RemoveChannel(this);
             _sendingWindow.Set();
             _sendingWindow.Close();

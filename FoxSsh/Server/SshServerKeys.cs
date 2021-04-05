@@ -3,8 +3,6 @@
 //  | |  // Copyright 2021 The Fox Council
 
 using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace FoxSsh.Server
 {
@@ -28,7 +26,7 @@ namespace FoxSsh.Server
             {
                 "ssh-rsa" => Rsa,
                 "ssh-dss" => Dss,
-                _ => throw new ApplicationException($"Keytype {keyType} is not a valid SSH Server Public Key"),
+                _ => throw new ApplicationException($"Key type {keyType} is not a valid SSH Server Public Key")
             };
         }
     }

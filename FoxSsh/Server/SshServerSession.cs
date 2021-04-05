@@ -1,11 +1,10 @@
-﻿// !! // FoxSsh - https://github.com/FoxCouncil/FoxSsh
-// *.-". // MIT License | | // Copyright 2021 The Fox Council
+﻿//   !!  // FoxSsh - https://github.com/FoxCouncil/FoxSsh
+// *.-". // MIT License
+//  | |  // Copyright 2021 The Fox Council
 
 using FoxSsh.Common;
 using FoxSsh.Common.Crypto;
 using FoxSsh.Common.Messages;
-using FoxSsh.Common.Messages.Channel.Request;
-using FoxSsh.Common.Services;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -15,6 +14,7 @@ using System.Net.Sockets;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
+// ReSharper disable PossibleMultipleEnumeration
 
 namespace FoxSsh.Server
 {
@@ -22,17 +22,7 @@ namespace FoxSsh.Server
     {
         private readonly Socket _socket;
 
-        private uint _incomingBytes;
-        private uint _incomingSequence;
-
-        private uint _outgoingBytes;
-        private uint _outgoingSequence;
-
         private readonly SshServiceRegistry _registry;
-
-        private SshSessionContext _context;
-
-        private SshAlgorithms _algorithms;
 
         private readonly EndPoint _endPoint;
 
@@ -40,9 +30,23 @@ namespace FoxSsh.Server
 
         private readonly EventWaitHandle _hasBlockedMessages = new ManualResetEvent(true);
 
+        private bool _disconnected;
+
+        private uint _incomingBytes;
+        private uint _incomingSequence;
+
+        private uint _outgoingBytes;
+        private uint _outgoingSequence;
+
+        private SshSessionContext _context;
+
+        private SshAlgorithms _algorithms;
+
         public event Func<SshAuthenticationRequest, bool> AuthenticationRequest;
 
-        public event Action<SshPty> PtyRegistered;
+        public event Action ShellRequest;
+
+        public event Action<SshPty> PtyRequest;
 
         public event Action<string> Disconnected;
 
@@ -61,7 +65,9 @@ namespace FoxSsh.Server
 
             _registry = new SshServiceRegistry(this);
 
-            LogLine(SshLogLevel.Info, $"Session & Service Registry Created For {_endPoint}");
+            LogLine(SshLogLevel.Trace, $"Session & Service Registry Created For {_endPoint}");
+
+            LogLine(SshLogLevel.Message, "Client connected: " + socket.RemoteEndPoint);
         }
 
         public void LogLine(SshLogLevel level, string log) => SshLog.WriteLine(level, $"-[S:{Id}] {log}");
@@ -76,21 +82,21 @@ namespace FoxSsh.Server
             const int socketBufferSize = 2 * SshCore.MaximumSshPacketSize;
 
             _socket.SetSocketOption(SocketOptionLevel.Tcp, SocketOptionName.NoDelay, true);
-            _socket.LingerState = new LingerOption(enable: false, seconds: 0);
+            _socket.LingerState = new LingerOption(false, 0);
             _socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.SendBuffer, socketBufferSize);
             _socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReceiveBuffer, socketBufferSize);
-            _socket.ReceiveTimeout = (int)SshCore.SocketTimeout.TotalMilliseconds;
+            _socket.ReceiveTimeout = -1; // (int)SshCore.SocketTimeout.TotalMilliseconds;
 
-            LogLine(SshLogLevel.Info, "Socket Settings Initiated");
+            LogLine(SshLogLevel.Trace, "Socket Settings Initiated");
 
             HandshakeVersions();
 
             if (!Regex.IsMatch(ClientVersion, "SSH-2.0-.+"))
             {
-                throw new ApplicationException($"FoxSsh's server cannot accept connections from clients like: {ClientVersion}. We only support SSH2.");
+                throw new ApplicationException($"FoxSsh server cannot accept connections from clients like: {ClientVersion}. We only support SSH2.");
             }
 
-            LogLine(SshLogLevel.Info, $"Socket Client Verified {ClientVersion}");
+            LogLine(SshLogLevel.Debug, $"Socket Client Verified {ClientVersion}");
 
             ShouldUpdateContexts(true);
 
@@ -102,25 +108,31 @@ namespace FoxSsh.Server
 
                     if (message == null)
                     {
-                        continue;
+                        break;
                     }
 
-                    LogLine(SshLogLevel.Info, $"Processing Message {message.Type}");
+                    LogLine(SshLogLevel.Trace, $"Processing Message {message.Type}");
 
                     ProcessMessage(message);
                 }
             }
-            finally
+            catch
             {
+                // ignored
             }
 
-            _registry.Close();
+            _registry.Close("SocketDisconnection");
 
-            LogLine(SshLogLevel.Info, $"Socket Disconnecting For {_endPoint}");
+            LogLine(SshLogLevel.Message, $"Socket Disconnecting For {_endPoint}");
         }
 
         public void SendMessage(ISshMessage message)
         {
+            if (message.Type != SshMessageType.ChannelData)
+            {
+                LogLine(SshLogLevel.Trace, $"Sending message: {message.Type}");
+            }
+
             if (_context != null && message.Type > SshMessageType.Debug && (message.Type < SshMessageType.KeyExchangeInitialization || (byte)message.Type > 49))
             {
                 _blockedMessagesQueue.Enqueue(message);
@@ -135,9 +147,28 @@ namespace FoxSsh.Server
 
         public void Disconnect(SshSessionException exception = null)
         {
-            _socket.Disconnect(false);
+            if (_disconnected)
+            {
+                return;
+            }
 
-            Disconnected?.Invoke(exception is null ? "Unknown" : exception.Message);
+            _disconnected = true;
+
+            try
+            {
+                _socket.Disconnect(false);
+                _socket.Dispose();
+            }
+            catch (ObjectDisposedException)
+            {
+                // Noop
+            }
+
+            var exceptionMessage = exception is null ? "Unknown" : exception.Message;
+
+            Disconnected?.Invoke(exceptionMessage);
+
+            _registry.Close(exceptionMessage);
         }
 
         internal bool SendAuthenticationRequest(SshAuthenticationRequest request)
@@ -154,11 +185,16 @@ namespace FoxSsh.Server
             return false;
         }
 
-        internal void SendPtyRegistration(SshPty pty)
+        internal void SendPtyRequest(SshPty pty)
         {
             Pty = pty;
 
-            PtyRegistered?.Invoke(pty);
+            PtyRequest?.Invoke(pty);
+        }
+
+        internal void SendShellRequest()
+        {
+            ShellRequest?.Invoke();
         }
 
         private ISshMessage ReadMessage()
@@ -241,9 +277,6 @@ namespace FoxSsh.Server
             }
 
             // http://tools.ietf.org/html/rfc4253
-            // 6.  Binary Packet Protocol the total length of (packet_length || padding_length ||
-            // payload || padding) is a multiple of the cipher block size or 8, padding length must
-            // between 4 and 255 bytes.
             var paddingLength = (byte)(blockSize - (payload.Count() + 5) % blockSize);
 
             if (paddingLength < 4)
@@ -282,11 +315,6 @@ namespace FoxSsh.Server
 
         private void ProcessMessage(ISshMessage message)
         {
-            if (_registry != null && _registry.TryProcessMessage(message))
-            {
-                return;
-            }
-
             switch (message)
             {
                 case KeyExchangeInitializationMessage keyExchangeMessage:
@@ -322,10 +350,7 @@ namespace FoxSsh.Server
                     var hostKeyAndCertificates = hostKeyExchangeAlgorithm.CreateKeyAndCertificatesData();
                     var exchangeHash = ComputeExchangeHash(keyExchangeAlgorithm, hostKeyAndCertificates, clientExchange.ToArray(), serverExchange, sharedSecret);
 
-                    if (SessionId == null)
-                    {
-                        SessionId = exchangeHash;
-                    }
+                    SessionId ??= exchangeHash;
 
                     var clientCipherIv = ComputeEncryptionKey(keyExchangeAlgorithm, exchangeHash, clientCipher.BlockSize >> 3, sharedSecret, 'A');
                     var serverCipherIv = ComputeEncryptionKey(keyExchangeAlgorithm, exchangeHash, serverCipher.BlockSize >> 3, sharedSecret, 'B');
@@ -384,7 +409,7 @@ namespace FoxSsh.Server
 
                     if (!SshCore.ServiceMapping.ContainsKey(serviceName))
                     {
-                        throw new ApplicationException($"Service requested {serviceName} is not servicable...");
+                        throw new ApplicationException($"Service requested {serviceName} is not serviceable...");
                     }
 
                     var serviceObj = _registry.Register(serviceName);
@@ -401,27 +426,33 @@ namespace FoxSsh.Server
 
                 case DisconnectMessage disconnectMsg:
                 {
-                    LogLine(SshLogLevel.Info, "Client has requested disconnect for the following reason: " + disconnectMsg.Description);
+                    LogLine(SshLogLevel.Message, "Client has requested disconnect for the following reason: " + disconnectMsg.Description);
                     Disconnect();
                 }
                 break;
                 
                 default:
                 {
+                    if (_registry != null && _registry.TryProcessMessage(message))
+                    {
+                        return;
+                    }
+
                     throw new SshSessionException(SshSessionExceptionType.Unknown, $"Unknown message type: [{message}]");
                 }
-                break;
             }
         }
 
         private void SendBlockedMessages()
         {
-            if (_blockedMessagesQueue.Count > 0)
+            if (_blockedMessagesQueue.Count <= 0)
             {
-                while (_blockedMessagesQueue.TryDequeue(out ISshMessage message))
-                {
-                    SendMessageInternal(message);
-                }
+                return;
+            }
+
+            while (_blockedMessagesQueue.TryDequeue(out var message))
+            {
+                SendMessageInternal(message);
             }
         }
 
@@ -450,7 +481,8 @@ namespace FoxSsh.Server
 
                 currentHash = keyExchangeAlgorithm.ComputeHash(stream.ToByteArray());
 
-                int currentHashLength = Math.Min(currentHash.Length, blockSize - keyBufferIndex);
+                var currentHashLength = Math.Min(currentHash.Length, blockSize - keyBufferIndex);
+
                 Array.Copy(currentHash, 0, keyBuffer, keyBufferIndex, currentHashLength);
 
                 keyBufferIndex += currentHashLength;
@@ -488,18 +520,18 @@ namespace FoxSsh.Server
                 {
                     var asyncResult = _socket.BeginReceive(buffer, pos, length - pos, SocketFlags.None, null, null);
 
-                    Wait(asyncResult);
-
-                    var bytesReceived = _socket.EndReceive(asyncResult);
+                    Wait(asyncResult, SshCore.ReadSocketTimeout);
 
                     if (!_socket.Connected)
                     {
                         throw new ApplicationException("Session socket connection lost");
                     }
 
+                    var bytesReceived = _socket.EndReceive(asyncResult ?? throw new InvalidOperationException());
+
                     if (bytesReceived == 0 && _socket.Available == 0)
                     {
-                        if (msSinceLastData >= SshCore.SocketTimeout.TotalMilliseconds)
+                        if (msSinceLastData >= SshCore.ReadSocketTimeout.TotalMilliseconds)
                         {
                             Disconnect(new SshSessionException(SshSessionExceptionType.SocketTimeout));
 
@@ -519,31 +551,28 @@ namespace FoxSsh.Server
                 }
                 catch (SocketException e)
                 {
-                    if (e.SocketErrorCode == SocketError.WouldBlock || e.SocketErrorCode == SocketError.IOPending || e.SocketErrorCode == SocketError.NoBufferSpaceAvailable)
+                    if (e.SocketErrorCode != SocketError.WouldBlock && e.SocketErrorCode != SocketError.IOPending && e.SocketErrorCode != SocketError.NoBufferSpaceAvailable)
                     {
                         Thread.Sleep(30);
                     }
+                    else if (e.SocketErrorCode == SocketError.ConnectionReset)
+                    {
+                        Disconnect(new SshSessionException(SshSessionExceptionType.SocketConnectionReset));
+
+                        return null;
+                    }
                     else
                     {
-                        if (e.SocketErrorCode == SocketError.ConnectionReset)
-                        {
-                            Disconnect(new SshSessionException(SshSessionExceptionType.SocketConnectionReset));
-
-                            return null;
-                        }
-                        else
-                        {
-                            throw new ApplicationException($"Session socket threw an Exception: {e.Message}");
-                        }
+                        throw new ApplicationException($"Session socket threw an Exception: {e.Message}");
                     }
                 }
-                catch (SshSessionException sessEx)
+                catch (SshSessionException sshSessionException)
                 {
-                    LogLine(SshLogLevel.Info, $"Session Exception Thrown: {sessEx.Message}");
+                    LogLine(SshLogLevel.Error, $"Session Exception Thrown: {sshSessionException.Message}");
 
-                    Disconnect(sessEx);
+                    Disconnect(sshSessionException);
 
-                    Disconnected?.Invoke(sessEx.Message);
+                    Disconnected?.Invoke(sshSessionException.Message);
 
                     return null;
                 }
@@ -567,9 +596,9 @@ namespace FoxSsh.Server
                 {
                     var result = _socket.BeginSend(data, pos, length - pos, SocketFlags.None, null, null);
 
-                    Wait(result);
+                    Wait(result, SshCore.WriteSocketTimeout);
 
-                    pos += _socket.EndSend(result);
+                    pos += _socket.EndSend(result ?? throw new InvalidOperationException());
                 }
                 catch (SocketException ex)
                 {
@@ -580,7 +609,18 @@ namespace FoxSsh.Server
                     else
                     {
                         Disconnect();
+
+                        break;
                     }
+                }
+                catch (Exception exception)
+                {
+                    if (exception.Message.Contains("Cannot access a disposed object."))
+                    {
+                        Disconnect();
+                    }
+
+                    break;
                 }
             }
         }
@@ -595,14 +635,16 @@ namespace FoxSsh.Server
                 isContextUpdated = true;
             }
 
-            if (isContextUpdated)
+            if (!isContextUpdated)
             {
-                var keyExchangeMessage = KeyExchangeInitializationMessage.Default();
-
-                _context.Server.KeyExchangePayload = keyExchangeMessage.Write();
-
-                SendMessage(keyExchangeMessage);
+                return;
             }
+
+            var keyExchangeMessage = KeyExchangeInitializationMessage.Default();
+
+            _context.Server.KeyExchangePayload = keyExchangeMessage.Write();
+
+            SendMessage(keyExchangeMessage);
         }
 
         private void HandshakeVersions()
@@ -612,15 +654,14 @@ namespace FoxSsh.Server
             var buffer = new byte[255];
             var dummy = new byte[255];
             var pos = 0;
-            var len = 0;
 
             while (pos < buffer.Length)
             {
                 var result = _socket.BeginReceive(buffer, pos, buffer.Length - pos, SocketFlags.Peek, null, null);
 
-                Wait(result);
+                Wait(result, SshCore.ConnectSocketTimeout);
 
-                len = _socket.EndReceive(result);
+                var len = _socket.EndReceive(result ?? throw new InvalidOperationException());
 
                 if (len == 0)
                 {
@@ -629,21 +670,25 @@ namespace FoxSsh.Server
 
                 for (var i = 0; i < len; i++, pos++)
                 {
-                    if (pos > 0 && buffer[pos - 1] == SshCore.CarriageReturn && buffer[pos] == SshCore.LineFeed)
+                    switch (pos > 0)
                     {
-                        _socket.Receive(dummy, 0, i + 1, SocketFlags.None);
+                        case true when buffer[pos - 1] == SshCore.CarriageReturn && buffer[pos] == SshCore.LineFeed:
+                        {
+                            _socket.Receive(dummy, 0, i + 1, SocketFlags.None);
 
-                        ClientVersion = Encoding.ASCII.GetString(buffer, 0, pos - 1);
+                            ClientVersion = Encoding.ASCII.GetString(buffer, 0, pos - 1);
 
-                        return;
-                    }
-                    else if (pos > 0 && buffer[pos] == SshCore.LineFeed)
-                    {
-                        _socket.Receive(dummy, 0, i + 1, SocketFlags.None);
+                            return;
+                        }
 
-                        ClientVersion = Encoding.ASCII.GetString(buffer, 0, pos);
+                        case true when buffer[pos] == SshCore.LineFeed:
+                        {
+                            _socket.Receive(dummy, 0, i + 1, SocketFlags.None);
 
-                        return;
+                            ClientVersion = Encoding.ASCII.GetString(buffer, 0, pos);
+
+                            return;
+                        }
                     }
                 }
 
@@ -663,9 +708,16 @@ namespace FoxSsh.Server
             return algorithm.ComputeHash(stream.ToByteArray());
         }
 
-        private void Wait(IAsyncResult result)
+        private static void Wait(IAsyncResult result, TimeSpan timeout)
         {
-            if (!result.AsyncWaitHandle.WaitOne(SshCore.SocketTimeout))
+            if (timeout == TimeSpan.MaxValue)
+            {
+                result.AsyncWaitHandle.WaitOne();
+                
+                return;
+            }
+
+            if (!result.AsyncWaitHandle.WaitOne(timeout))
             {
                 throw new SshSessionException(SshSessionExceptionType.SocketTimeout);
             }

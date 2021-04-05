@@ -4,21 +4,21 @@
 
 using System.Collections.Generic;
 
-namespace FoxSsh.Common.Messages
+namespace FoxSsh.Common.Messages.Channel
 {
-    public class ServiceAcceptMessage : ISshMessage
+    public class ChannelFailureMessage : ISshMessage
     {
-        public SshMessageType Type => SshMessageType.ServiceAccept;
+        public SshMessageType Type => SshMessageType.ChannelFailure;
 
         public IReadOnlyCollection<byte> Raw { get; set; }
 
-        public string Name { get; set; }
+        public uint RecipientChannel { get; set; }
 
         public void LoadRawData(SshDataStream stream) { }
 
         public void WriteRawData(SshDataStream stream)
         {
-            stream.WriteAscii(Name);
+            stream.Write(RecipientChannel);
         }
     }
 }

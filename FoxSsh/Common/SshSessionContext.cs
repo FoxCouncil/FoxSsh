@@ -4,7 +4,7 @@
 
 namespace FoxSsh.Common
 {
-    class SshSessionContext
+    internal class SshSessionContext
     {
         public string KeyExchange { get; set; }
 

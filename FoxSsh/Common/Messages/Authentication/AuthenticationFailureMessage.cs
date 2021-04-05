@@ -5,11 +5,10 @@
 using FoxSsh.Common.Services;
 using System;
 using System.Collections.Generic;
-using System.Text;
 
 namespace FoxSsh.Common.Messages.Authentication
 {
-    class AuthenticationFailureMessage : ISshMessage
+    internal class AuthenticationFailureMessage : ISshMessage
     {
         public SshMessageType Type => SshMessageType.UserAuthFailure;
 

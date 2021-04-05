@@ -3,7 +3,6 @@
 //  | |  // Copyright 2021 The Fox Council
 
 using System;
-using System.Collections.Generic;
 using System.Security.Cryptography;
 using System.Text;
 
@@ -13,52 +12,52 @@ namespace FoxSsh.Common.Crypto
     {
         public abstract string Name { get; }
 
-        public PublicKeyAlgorithm(string key)
+        protected PublicKeyAlgorithm(string key)
         {
-            if (!string.IsNullOrEmpty(key))
+            if (string.IsNullOrEmpty(key))
             {
-                var bytes = Convert.FromBase64String(key);
-
-                ImportKey(bytes);
+                return;
             }
+
+            var bytes = Convert.FromBase64String(key);
+
+            // ReSharper disable once VirtualMemberCallInConstructor
+            ImportKey(bytes);
         }
 
         public string GetFingerprint()
         {
-            using (var md5 = MD5.Create())
-            {
-                var bytes = md5.ComputeHash(CreateKeyAndCertificatesData());
+            using var md5 = MD5.Create();
 
-                return BitConverter.ToString(bytes).Replace('-', ':');
-            }
+            var bytes = md5.ComputeHash(CreateKeyAndCertificatesData());
+
+            return BitConverter.ToString(bytes).Replace('-', ':');
         }
 
         public byte[] GetSignature(byte[] signatureData)
         {
-            using (var stream = new SshDataStream(signatureData))
+            using var stream = new SshDataStream(signatureData);
+
+            if (stream.ReadString(Encoding.ASCII) != Name)
             {
-                if (stream.ReadString(Encoding.ASCII) != this.Name)
-                {
-                    throw new CryptographicException("Signature was not created with this algorithm.");
-                }
-
-                var signature = stream.ReadBinary();
-
-                return signature;
+                throw new CryptographicException("Signature was not created with this algorithm.");
             }
+
+            var signature = stream.ReadBinary();
+
+            return signature;
         }
 
         public byte[] CreateSignatureData(byte[] data)
         {
-            using (var stream = new SshDataStream())
-            {
-                var signature = SignData(data);
+            using var stream = new SshDataStream();
 
-                stream.Write(Name, Encoding.ASCII);
-                stream.WriteBinary(signature);
+            var signature = SignData(data);
 
-                return stream.ToByteArray();
-            }
+            stream.Write(Name, Encoding.ASCII);
+            stream.WriteBinary(signature);
+
+            return stream.ToByteArray();
         }
 
         public abstract void ImportKey(byte[] bytes);

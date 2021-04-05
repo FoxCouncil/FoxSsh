@@ -3,7 +3,6 @@
 //  | |  // Copyright 2021 The Fox Council
 
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -70,7 +69,7 @@ namespace FoxSsh.Common
             {
                 var length = (uint)data.Length;
 
-                var high = ((data[0] & 0x80) != 0);
+                var high = (data[0] & 0x80) != 0;
 
                 if (high)
                 {
@@ -152,8 +151,8 @@ namespace FoxSsh.Common
         {
             var data = ReadBinary(8);
 
-            return ((ulong)data[0] << 56 | (ulong)data[1] << 48 | (ulong)data[2] << 40 | (ulong)data[3] << 32 |
-                    (ulong)data[4] << 24 | (ulong)data[5] << 16 | (ulong)data[6] << 8 | data[7]);
+            return (ulong)data[0] << 56 | (ulong)data[1] << 48 | (ulong)data[2] << 40 | (ulong)data[3] << 32 |
+                   (ulong)data[4] << 24 | (ulong)data[5] << 16 | (ulong)data[6] << 8 | data[7];
         }
 
         public string ReadString(Encoding encoding)
@@ -163,7 +162,7 @@ namespace FoxSsh.Common
             return encoding.GetString(bytes);
         }
 
-        public string ReadStringUTF8()
+        public string ReadStringUtf8()
         {
             return ReadString(Encoding.UTF8);
         }
@@ -182,16 +181,16 @@ namespace FoxSsh.Common
                 return new byte[1];
             }
 
-            if (data[0] == 0)
+            if (data[0] != 0)
             {
-                var output = new byte[data.Length - 1];
-
-                Array.Copy(data, 1, output, 0, output.Length);
-
-                return output;
+                return data;
             }
 
-            return data;
+            var output = new byte[data.Length - 1];
+
+            Array.Copy(data, 1, output, 0, output.Length);
+
+            return output;
         }
 
         public byte[] ReadBinary(int length)

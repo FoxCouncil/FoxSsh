@@ -2,11 +2,6 @@
 // *.-". // MIT License
 //  | |  // Copyright 2021 The Fox Council
 
-using FoxSsh.Common.Messages;
-using System;
-using System.Collections.Generic;
-using System.Text;
-
 namespace FoxSsh.Common
 {
     public interface ISshService
@@ -15,7 +10,7 @@ namespace FoxSsh.Common
 
         SshServiceRegistry Registry { get; set; }
 
-        public void Close();
+        public void Close(string reason);
 
         public bool TryParseMessage(ISshMessage message);
     }
