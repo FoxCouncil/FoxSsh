@@ -4,6 +4,8 @@
 
 using FoxSsh.Common.Messages.Authentication;
 using System.Collections.Generic;
+using System.Reflection;
+using Microsoft.Extensions.Logging;
 
 namespace FoxSsh.Common.Services
 {
@@ -17,10 +19,22 @@ namespace FoxSsh.Common.Services
 
         public SshServiceRegistry Registry { get; set; }
 
-        public void Close(string reason) { }
+        private readonly ILogger _logger;
+
+        public AuthenticationService()
+        {
+            _logger = SshLog.Factory.CreateLogger<AuthenticationService>();
+        }
+
+        public void Close(string reason)
+        {
+            using var scope = _logger.BeginScope($"{GetType().Name}=>{MethodBase.GetCurrentMethod()?.Name}");
+        }
 
         public bool TryParseMessage(ISshMessage message)
         {
+            using var scope = _logger.BeginScope($"{GetType().Name}=>{MethodBase.GetCurrentMethod()?.Name}");
+
             if (!(message.Type >= SshMessageType.UserAuthRequest && message.Type <= SshMessageType.UserAuthBanner))
             {
                 return false;
@@ -33,6 +47,8 @@ namespace FoxSsh.Common.Services
 
         private void ProcessMessage(AuthenticationServiceRequestMessage message)
         {
+            using var scope = _logger.BeginScope($"{GetType().Name}=>{MethodBase.GetCurrentMethod()?.Name}");
+
             var authRequest = SshAuthenticationRequest.FromRequestMessage(message);
 
             var result = Registry.Session.SendAuthenticationRequest(authRequest);
@@ -46,14 +62,14 @@ namespace FoxSsh.Common.Services
 
             if (!authRequest.IsSupportedMethod)
             {
-                Registry.Session.LogLine(SshLogLevel.Debug, $"Authentication Service [Type:{message.MethodName}] Not Valid, Sending [Types:{string.Join(",", SupportedMethods)}]");
+                _logger.LogDebug($"Authentication Service [Type:{message.MethodName}] Not Valid, Sending [Types:{string.Join(",", SupportedMethods)}]");
 
                 Registry.Session.SendMessage(new AuthenticationFailureMessage());
 
                 return;
             }
 
-            Registry.Session.LogLine(SshLogLevel.Debug, $"Authentication Service [Type:{message.MethodName}] [Result:{result}]");
+            _logger.LogDebug($"Authentication Service [Type:{message.MethodName}] [Result:{result}]");
 
             if (result)
             {

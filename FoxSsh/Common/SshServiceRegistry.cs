@@ -6,6 +6,8 @@ using FoxSsh.Server;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
+using Microsoft.Extensions.Logging;
 
 namespace FoxSsh.Common
 {
@@ -17,13 +19,19 @@ namespace FoxSsh.Common
 
         public IReadOnlyCollection<ISshService> Services => _services.Values;
 
+        private readonly ILogger _logger;
+
         public SshServiceRegistry(SshServerSession session)
         {
+            _logger = SshLog.Factory.CreateLogger<SshServiceRegistry>();
+
             Session = session;
         }
 
         public bool IsRegistered(string name)
         {
+            using var scope = _logger.BeginScope($"{GetType().Name}=>{MethodBase.GetCurrentMethod()?.Name}");
+
             if (!SshCore.ServiceMapping.ContainsKey(name))
             {
                 throw new ApplicationException($"Service {name} not found in ServiceMappings.");
@@ -34,7 +42,9 @@ namespace FoxSsh.Common
 
         public ISshService Register(string name)
         {
-            Session.LogLine(SshLogLevel.Debug, $"Registering Service [{name}]");
+            using var scope = _logger.BeginScope($"{GetType().Name}=>{MethodBase.GetCurrentMethod()?.Name}");
+
+            _logger.LogDebug($"Registering Service [{name}]");
 
             if (!SshCore.ServiceMapping.ContainsKey(name))
             {
@@ -57,6 +67,8 @@ namespace FoxSsh.Common
 
         public void UnRegister(string name)
         {
+            using var scope = _logger.BeginScope($"{GetType().Name}=>{MethodBase.GetCurrentMethod()?.Name}");
+
             if (!SshCore.ServiceMapping.ContainsKey(name))
             {
                 throw new ApplicationException($"Service {name} not found in ServiceMappings.");
@@ -73,16 +85,20 @@ namespace FoxSsh.Common
 
         public bool TryProcessMessage(ISshMessage message)
         {
+            using var scope = _logger.BeginScope($"{GetType().Name}=>{MethodBase.GetCurrentMethod()?.Name}");
+
             return _services.Values.Any(service => service.TryParseMessage(message));
         }
 
         public void Close(string reason)
         {
+            using var scope = _logger.BeginScope($"{GetType().Name}=>{MethodBase.GetCurrentMethod()?.Name}");
+
             if (!_services.Any())
             {
                 return;
             }
-                
+
             _services.Values.ToList().ForEach(x => x.Close(reason));
             _services.Clear();
         }

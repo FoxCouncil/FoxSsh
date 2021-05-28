@@ -1,6 +1,8 @@
 ﻿using FoxSsh.Common;
 using FoxSsh.Server;
 using System;
+using System.Reflection;
+using Microsoft.Extensions.Logging;
 
 namespace SandboxApp
 {
@@ -14,8 +16,12 @@ namespace SandboxApp
 
         public string Username { get; private set; }
 
+        private readonly ILogger _logger;
+
         public SandboxSession(SshServerSession sshSession)
         {
+            _logger = SshLog.Factory.CreateLogger<SandboxSession>();
+
             _sshSession = sshSession;
             _sshSession.AuthenticationRequest += AuthenticationRequestHandler;
             _sshSession.PtyRequest += PtyRegisteredHandler;
@@ -24,21 +30,29 @@ namespace SandboxApp
 
         public void Stop()
         {
+            using var scope = _logger.BeginScope($"{GetType().Name}=>{MethodBase.GetCurrentMethod()?.Name}");
+
             _screen?.Stop();
         }
 
         private void Disconnected(string obj)
         {
+            using var scope = _logger.BeginScope($"{GetType().Name}=>{MethodBase.GetCurrentMethod()?.Name}");
+
             Stop();
         }
 
         private void PtyRegisteredHandler(SshPty pty)
         {
+            using var scope = _logger.BeginScope($"{GetType().Name}=>{MethodBase.GetCurrentMethod()?.Name}");
+
             _screen = new Window(this, pty);
         }
 
         private bool AuthenticationRequestHandler(SshAuthenticationRequest request)
         {
+            using var scope = _logger.BeginScope($"{GetType().Name}=>{MethodBase.GetCurrentMethod()?.Name}");
+
             request.Banner = $"Welcome {request.Username},\n\nYou have reached The FoxSSH Sandbox Server.\n\nPlease login...\n\n";
 
             if (request.Method != SshCore.PasswordAuthenticationMethod)
