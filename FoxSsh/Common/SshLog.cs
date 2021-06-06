@@ -5,29 +5,14 @@
 using System;
 using System.Diagnostics;
 using System.Threading;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace FoxSsh.Common
 {
     public static class SshLog
     {
-        public static SshLogLevel LogLevel { get; set; } = Debugger.IsAttached ? SshLogLevel.All : SshLogLevel.Error;
 
-        public static void WriteLine(SshLogLevel level, string line)
-        {
-            if (level <= LogLevel)
-            {
-                Console.WriteLine($"[{DateTime.UtcNow:O}]-[{SshCore.ProductName}]-[T:{Thread.CurrentThread.ManagedThreadId}]-[{level.ToString().ToUpper()}]{line}");
-            }
-        }
-    }
-
-    public enum SshLogLevel
-    {
-        None,
-        Error,
-        Message,
-        Debug,
-        Trace,
-        All
+        public static ILoggerFactory Factory = NullLoggerFactory.Instance;
     }
 }

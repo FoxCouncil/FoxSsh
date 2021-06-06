@@ -7,8 +7,11 @@ using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
+using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace FoxSsh.Server
 {
@@ -32,7 +35,9 @@ namespace FoxSsh.Server
 
         public int ListenPort { get; }
 
-        public SshServer(IPAddress ipAddress = null, int port = SshCore.DefaultPort)
+        private readonly ILogger _logger;
+
+        public SshServer(IPAddress ipAddress = null, int port = SshCore.DefaultPort, ILoggerFactory loggerFactory = null)
         {
             ipAddress ??= IPAddress.IPv6Any;
 
@@ -40,14 +45,43 @@ namespace FoxSsh.Server
 
             ListenPort = port;
 
-            LogLine(SshLogLevel.Trace, "Server Initialized");
+            // Update the global LoggerFactory, if it doesn't already exist
+            if (loggerFactory != null && SshLog.Factory != null &&
+                (SshLog.Factory.GetType() == typeof(NullLoggerFactory)))
+            {
+                SshLog.Factory = loggerFactory;
+            }
+
+            // Create a Logger
+            _logger = SshLog.Factory.CreateLogger<SshServer>();
+
+            _logger.LogTrace("Server Initialized");
         }
 
-        public static void LogLine(SshLogLevel level, string log) => SshLog.WriteLine(level, $"-[SERVER] {log}");
+        public SshServer(ILoggerFactory loggerFactory = null)
+        {
+            ListenAddress = IPAddress.IPv6Any;
+
+            ListenPort = SshCore.DefaultPort;
+
+            // Update the global LoggerFactory, if it doesn't already exist
+            if (loggerFactory != null && SshLog.Factory != null &&
+                (SshLog.Factory.GetType() == typeof(NullLoggerFactory)))
+            {
+                SshLog.Factory = loggerFactory;
+            }
+
+            // Create a Logger
+            _logger = SshLog.Factory.CreateLogger<SshServer>();
+
+            _logger.LogTrace("Server Initialized");
+        }
 
         public void Start()
         {
-            LogLine(SshLogLevel.Trace, "Server Is Starting...");
+            using var scope = _logger.BeginScope($"{GetType().Name}=>{MethodBase.GetCurrentMethod()?.Name}");
+
+            _logger.LogTrace("Server Is Starting...");
 
             if (_isRunning)
             {
@@ -64,13 +98,19 @@ namespace FoxSsh.Server
 
             _isRunning = true;
 
-            LogLine(SshLogLevel.Message, $"Server Has Started {_listener.LocalEndpoint}");
+            _logger.LogInformation($"Server Has Started {_listener.LocalEndpoint}");
         }
 
         public void Stop()
         {
+            using var scope = _logger.BeginScope($"{GetType().Name}=>{MethodBase.GetCurrentMethod()?.Name}");
+
+            _logger.LogWarning($"Server is stopping... {_listener.LocalEndpoint}");
+
             if (!_isRunning)
             {
+                _logger.LogWarning($"Called Stop when already stopped! { _listener.LocalEndpoint}");
+
                 throw new ApplicationException("Called Stop when stopped on FoxSshServer!");
             }
 
@@ -91,6 +131,8 @@ namespace FoxSsh.Server
 
         public void Dispose()
         {
+            using var scope = _logger.BeginScope($"{GetType().Name}=>{MethodBase.GetCurrentMethod()?.Name}");
+
             if (_isDisposed)
             {
                 return;
@@ -101,6 +143,8 @@ namespace FoxSsh.Server
 
         private void BeginAcceptSocket()
         {
+            using var scope = _logger.BeginScope($"{GetType().Name}=>{MethodBase.GetCurrentMethod()?.Name}");
+
             try
             {
                 _listener.BeginAcceptSocket(AcceptSocket, null);
@@ -119,13 +163,17 @@ namespace FoxSsh.Server
 
         private void AcceptSocket(IAsyncResult ar)
         {
+            using var scope = _logger.BeginScope($"{GetType().Name}=>{MethodBase.GetCurrentMethod()?.Name}");
+
             try
             {
                 var socket = _listener.EndAcceptSocket(ar);
 
                 Task.Run(() =>
                 {
-                    LogLine(SshLogLevel.Trace, $"Thread {Thread.CurrentThread.ManagedThreadId} started!");
+                    using var scope = _logger.BeginScope($"{GetType().Name}=>{MethodBase.GetCurrentMethod()?.Name}");
+
+                    _logger.LogTrace($"Thread {Thread.CurrentThread.ManagedThreadId} started!");
 
                     var session = new SshServerSession(socket);
 
@@ -140,7 +188,7 @@ namespace FoxSsh.Server
 
                     ClientDisconnected?.Invoke(session);
 
-                    LogLine(SshLogLevel.Trace, $"Thread {Thread.CurrentThread.ManagedThreadId} stopped!");
+                    _logger.LogTrace($"Thread {Thread.CurrentThread.ManagedThreadId} stopped!");
                 });
             }
             finally
