@@ -2,10 +2,25 @@
 
   <PropertyGroup>
     <TargetFramework>netstandard2.1</TargetFramework>
+    <Version>0.1</Version>
+    <Authors>Fox Council</Authors>
+    <Product>FoxSsh v0.1 - Sewer Rat</Product>
+    <Description>A simple SSH2 server C# library.</Description>
+    <Copyright>Fox Council 2021</Copyright>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/FoxCouncil/FoxSsh</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/FoxCouncil/FoxSsh</RepositoryUrl>
+    <RepositoryType>GitHub</RepositoryType>
+    <PackageTags>SshServer Ssh SecureServer SecureShell Shell</PackageTags>
+    <PackageIcon>foxssh.png</PackageIcon>
   </PropertyGroup>
 
   <ItemGroup>
     <None Remove="FoxSsh.sln.licenseheader" />
+    <None Include="foxssh.png">
+      <Pack>True</Pack>
+      <PackagePath></PackagePath>
+    </None>
   </ItemGroup>
 
   <ItemGroup>
