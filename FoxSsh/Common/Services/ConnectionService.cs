@@ -8,8 +8,10 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 
 namespace FoxSsh.Common.Services
 {
@@ -35,13 +37,19 @@ namespace FoxSsh.Common.Services
         public event Action<SshPty> PtyRegistered;
 #pragma warning restore 67
 
+        private readonly ILogger _logger;
+
         public ConnectionService()
         {
+            _logger = SshLog.Factory.CreateLogger<ConnectionService>();
+
             Task.Run(Run);
         }
 
         public void Close(string reason)
         {
+            using var scope = _logger.BeginScope($"{GetType().Name}=>{MethodBase.GetCurrentMethod()?.Name}");
+
             _cancelToken.Cancel();
 
             lock (_channelsLock)
@@ -55,6 +63,8 @@ namespace FoxSsh.Common.Services
 
         public bool TryParseMessage(ISshMessage message)
         {
+            using var scope = _logger.BeginScope($"{GetType().Name}=>{MethodBase.GetCurrentMethod()?.Name}");
+
             if (!(message.Type >= SshMessageType.ChannelOpen && message.Type <= SshMessageType.ChannelFailure))
             {
                 return false;
@@ -67,6 +77,8 @@ namespace FoxSsh.Common.Services
 
         internal void RemoveChannel(SshChannel sshChannel)
         {
+            using var scope = _logger.BeginScope($"{GetType().Name}=>{MethodBase.GetCurrentMethod()?.Name}");
+
             lock (_channelsLock)
             {
                 _channels.Remove(sshChannel);
@@ -75,6 +87,8 @@ namespace FoxSsh.Common.Services
 
         private void Run()
         {
+            using var scope = _logger.BeginScope($"{GetType().Name}=>{MethodBase.GetCurrentMethod()?.Name}");
+
             try
             {
                 while (!_cancelToken.IsCancellationRequested)
@@ -89,6 +103,8 @@ namespace FoxSsh.Common.Services
 
         private void ProcessMessage(ISshMessage message)
         {
+            using var scope = _logger.BeginScope($"{GetType().Name}=>{MethodBase.GetCurrentMethod()?.Name}");
+
             switch (message)
             {
                 case ChannelOpenMessage coMsg:
@@ -135,7 +151,7 @@ namespace FoxSsh.Common.Services
 
                 case ChannelRequestMessage coReq:
                 {
-                    Registry.Session.LogLine(SshLogLevel.Trace, $"Handling ChannelRequestMessage: {coReq.RequestType}");
+                    _logger.LogTrace($"Handling ChannelRequestMessage: {coReq.RequestType}");
 
                     switch (coReq.RequestType)
                     {
@@ -203,7 +219,8 @@ namespace FoxSsh.Common.Services
 
                         default:
                         {
-                            SshLog.WriteLine(SshLogLevel.Trace, coReq.RequestType);
+                            _logger.LogTrace(coReq.RequestType);
+
                             // throw new ApplicationException($"Could not process the {message.Type} Connection Service message.");
                         }
                         break;
@@ -228,6 +245,8 @@ namespace FoxSsh.Common.Services
 
         private SshChannel GetChannel(uint channelId)
         {
+            using var scope = _logger.BeginScope($"{GetType().Name}=>{MethodBase.GetCurrentMethod()?.Name}");
+
             SshChannel channel;
 
             lock (_channelsLock)
